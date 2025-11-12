@@ -39,4 +39,4 @@ spring:
             - StripPrefix=1
 
 jwt:
-  secret: "mySecretKeyForJwtToken123456789"
+  secret: "mySuperStrongSecretKeyForJwtToken123456789!"

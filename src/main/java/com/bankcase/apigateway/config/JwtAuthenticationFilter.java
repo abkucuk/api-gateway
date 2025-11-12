@@ -2,27 +2,30 @@ package com.bankcase.apigateway.config;
 
 import com.bankcase.apigateway.util.JwtUtil;
 import io.jsonwebtoken.Claims;
-import org.springframework.beans.factory.annotation.Autowired;
+import lombok.RequiredArgsConstructor;
+import org.springframework.cloud.gateway.filter.GatewayFilterChain;
+import org.springframework.cloud.gateway.filter.GlobalFilter;
+import org.springframework.core.Ordered;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.server.reactive.ServerHttpRequest;
 import org.springframework.stereotype.Component;
 import org.springframework.web.server.ServerWebExchange;
-import org.springframework.web.server.WebFilter;
-import org.springframework.web.server.WebFilterChain;
 import reactor.core.publisher.Mono;
 
 @Component
-public class JwtAuthenticationFilter implements WebFilter {
+@RequiredArgsConstructor
+public class JwtAuthenticationFilter implements GlobalFilter, Ordered {
 
-    @Autowired
-    private JwtUtil jwtUtil;
+    private final JwtUtil jwtUtil;
 
     @Override
-    public Mono<Void> filter(ServerWebExchange exchange, WebFilterChain chain) {
+    public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
         ServerHttpRequest request = exchange.getRequest();
+        String path = request.getURI().getPath();
 
-        if (request.getURI().getPath().contains("/auth")) {
+        // Auth servis için JWT gereksiz
+        if (path.contains("/auth")) {
             return chain.filter(exchange);
         }
 
@@ -39,12 +42,16 @@ public class JwtAuthenticationFilter implements WebFilter {
         }
 
         Claims claims = jwtUtil.getClaims(token);
-        exchange.getRequest().mutate()
-                .header("X-User-Id", claims.getSubject())
-                .header("X-Role", (String) claims.get("role"))
+        ServerHttpRequest mutated = exchange.getRequest().mutate()
+                .header("X-User", claims.getSubject())
+                .header("X-Role", claims.get("role", String.class))
                 .build();
 
-        return chain.filter(exchange);
+        return chain.filter(exchange.mutate().request(mutated).build());
+    }
+
+    @Override
+    public int getOrder() {
+        return -1; // önce çalışması için
     }
 }
-
